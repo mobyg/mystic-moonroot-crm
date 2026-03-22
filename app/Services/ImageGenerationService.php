@@ -277,10 +277,11 @@ CRITICAL REQUIREMENTS:
             ],
             'lifestyle' => [
                 // For the lifestyle photo template (774x1161)
-                'x' => (int)(($width - 200) / 2),
-                'y' => (int)($height * 0.38),
-                'width' => 200,
-                'height' => 200
+                // Centered on chest, below face
+                'x' => (int)(($width - 180) / 2),
+                'y' => (int)($height * 0.52),
+                'width' => 180,
+                'height' => 180
             ]
         ];
         return $configs[$mockupType] ?? $configs['flat'];
