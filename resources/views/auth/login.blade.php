@@ -4,7 +4,7 @@
 <div class="login-container">
     <div class="login-card">
         <div class="text-center mb-4">
-            <img src="{{ asset('images/mystic-logo-long.png') }}" alt="Mystic Moonroot" class="login-logo">
+            <img src="{{ asset('images/mystic-logo.png') }}" alt="Mystic Moonroot" class="login-logo">
         </div>
         
         <form method="POST" action="{{ route('login') }}">
@@ -48,7 +48,7 @@
                     {{ __('Login') }}
                 </button>
 
-                @if (Route::has('password.request'))
+                @if (\Illuminate\Support\Facades\Route::has('password.request'))
                     <div class="text-center mt-3">
                         <a class="btn btn-link" href="{{ route('password.request') }}">
                             {{ __('Forgot Your Password?') }}

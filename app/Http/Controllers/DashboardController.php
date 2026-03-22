@@ -21,7 +21,7 @@ class DashboardController extends Controller
         $dailyQuote = Quote::getDailyQuote();
         $salesData = $this->getSalesData();
         
-        return view('dashboard', compact('dailyQuote', 'salesData'));
+        return view('dashboard.index', compact('dailyQuote', 'salesData'));
     }
 
     public function getSalesData()

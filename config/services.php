@@ -44,4 +44,9 @@ return [
         'api_key' => env('NINJA_API_KEY'),
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'organization' => env('OPENAI_ORGANIZATION_ID'),
+    ],
+
 ];
