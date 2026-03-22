@@ -47,8 +47,16 @@ class ProductsController extends Controller
             'count' => 'required|integer|min:1|max:20'
         ]);
 
+        // Check if OpenAI API key is configured
+        if (!config('services.openai.api_key')) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'OpenAI API key not configured. Please add OPENAI_API_KEY to your .env file.'
+            ], 400);
+        }
+
         try {
-            // Get cost estimate (using Emergent Universal Key)
+            // Get cost estimate
             $costEstimate = $this->imageService->getEstimatedCost($request->count);
             
             // Generate products with AI
@@ -194,6 +202,13 @@ class ProductsController extends Controller
 
     public function regenerateImages(Product $product)
     {
+        if (!config('services.openai.api_key')) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'OpenAI API key not configured.'
+            ], 400);
+        }
+
         try {
             $product->update(['status' => 'In Progress']);
             GenerateProductImagesJob::dispatchSync($product->id);
