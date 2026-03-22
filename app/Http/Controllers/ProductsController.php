@@ -55,6 +55,9 @@ class ProductsController extends Controller
             ], 400);
         }
 
+        // Increase PHP execution time for image generation
+        set_time_limit(300); // 5 minutes
+
         try {
             // Get cost estimate
             $costEstimate = $this->imageService->getEstimatedCost($request->count);
@@ -64,7 +67,7 @@ class ProductsController extends Controller
             
             return response()->json([
                 'success' => true, 
-                'message' => "Generated {$request->count} products! Images are being created in the background.",
+                'message' => "Generated {$request->count} product(s) successfully!",
                 'products_created' => count($products),
                 'cost_estimate' => $costEstimate
             ]);
