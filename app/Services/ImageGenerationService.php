@@ -266,21 +266,21 @@ CRITICAL REQUIREMENTS:
 
     private function getPlacementConfig($mockupType, $width, $height)
     {
-        // CONSISTENT DESIGN SIZE across all mockups (350x350 pixels)
-        $designSize = 350;
-        
+        // Design sizes adjusted per template
         $configs = [
             'flat' => [
-                'x' => (int)(($width - $designSize) / 2),  // Centered horizontally
-                'y' => (int)($height * 0.24),              // Chest area on flat lay
-                'width' => $designSize,
-                'height' => $designSize
+                // For the realistic black t-shirt template (486x608)
+                'x' => (int)(($width - 220) / 2),  // Centered
+                'y' => (int)($height * 0.25),      // Chest area
+                'width' => 220,
+                'height' => 220
             ],
             'lifestyle' => [
-                'x' => (int)(($width - $designSize) / 2),  // Centered horizontally
-                'y' => (int)($height * 0.36),              // Chest area on lifestyle
-                'width' => $designSize,
-                'height' => $designSize
+                // For lifestyle photo template (1024x1024)
+                'x' => (int)(($width - 220) / 2),  // Centered
+                'y' => (int)($height * 0.36),      // Chest area
+                'width' => 220,
+                'height' => 220
             ]
         ];
         return $configs[$mockupType] ?? $configs['flat'];
