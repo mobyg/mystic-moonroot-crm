@@ -47,16 +47,8 @@ class ProductsController extends Controller
             'count' => 'required|integer|min:1|max:20'
         ]);
 
-        // Check if OpenAI API key is configured
-        if (!config('services.openai.api_key')) {
-            return response()->json([
-                'success' => false, 
-                'message' => 'OpenAI API key not configured. Please add OPENAI_API_KEY to your .env file.'
-            ], 400);
-        }
-
         try {
-            // Get cost estimate
+            // Get cost estimate (using Emergent Universal Key)
             $costEstimate = $this->imageService->getEstimatedCost($request->count);
             
             // Generate products with AI
@@ -101,8 +93,8 @@ class ProductsController extends Controller
                 ]
             ]);
             
-            // Queue image generation job
-            GenerateProductImagesJob::dispatch($product->id)->delay(now()->addSeconds($i * 10));
+            // Run image generation synchronously (no queue worker needed)
+            GenerateProductImagesJob::dispatchSync($product->id);
             
             $products[] = $product;
         }
@@ -202,20 +194,20 @@ class ProductsController extends Controller
 
     public function regenerateImages(Product $product)
     {
-        if (!config('services.openai.api_key')) {
+        try {
+            $product->update(['status' => 'In Progress']);
+            GenerateProductImagesJob::dispatchSync($product->id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Image regeneration complete!'
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false, 
-                'message' => 'OpenAI API key not configured.'
-            ], 400);
+                'message' => 'Image regeneration failed: ' . $e->getMessage()
+            ], 500);
         }
-
-        $product->update(['status' => 'In Progress']);
-        GenerateProductImagesJob::dispatch($product->id);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Image regeneration started! This may take a few minutes.'
-        ]);
     }
 
     public function downloadImages(Product $product)
