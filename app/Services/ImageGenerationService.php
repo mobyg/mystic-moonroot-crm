@@ -274,10 +274,11 @@ CRITICAL REQUIREMENTS:
                 'height' => (int)($height * 0.38)
             ],
             'lifestyle' => [
-                'x' => (int)($width * 0.35),
-                'y' => (int)($height * 0.28),
-                'width' => (int)($width * 0.30),
-                'height' => (int)($height * 0.30)
+                // Centered on chest, below neckline
+                'x' => (int)($width * 0.375),
+                'y' => (int)($height * 0.38),
+                'width' => (int)($width * 0.25),
+                'height' => (int)($height * 0.25)
             ]
         ];
         return $configs[$mockupType] ?? $configs['flat'];
