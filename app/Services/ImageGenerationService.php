@@ -1,5 +1,5 @@
 <?php
-// app/Services/ImageGenerationService.php - Uses OpenAI directly
+// app/Services/ImageGenerationService.php - Final version with consistent designs
 
 namespace App\Services;
 
@@ -16,10 +16,6 @@ class ImageGenerationService
     public function __construct()
     {
         $this->openaiApiKey = config('services.openai.api_key');
-        Log::info('ImageGenerationService initialized', [
-            'has_api_key' => !empty($this->openaiApiKey),
-            'api_key_preview' => $this->openaiApiKey ? 'sk-***' . substr($this->openaiApiKey, -4) : 'none'
-        ]);
     }
 
     public function generateProductImages($genre, $productName, $productDescription)
@@ -34,13 +30,24 @@ class ImageGenerationService
                 throw new Exception('OpenAI API key not configured');
             }
 
+            // Step 1: Generate ONE design image on white background
+            $designPath = $this->generateDesignOnly($productName, $genre, $productDescription);
+            
+            if (!$designPath) {
+                throw new Exception('Failed to generate design image');
+            }
+
+            // Step 2: Create mockups using the SAME design
+            $flatMockupPath = $this->createMockup($designPath, $productName, 'flat');
+            $lifestyleMockupPath = $this->createMockup($designPath, $productName, 'lifestyle');
+
             $images = [
-                'white_bg' => $this->generateSingleImage($productName, $genre, 'white_background'),
-                'black_tshirt' => $this->generateSingleImage($productName, $genre, 'black_tshirt'),
-                'lifestyle' => $this->generateSingleImage($productName, $genre, 'lifestyle')
+                'white_bg' => Storage::url($designPath),
+                'black_tshirt' => $flatMockupPath ? Storage::url($flatMockupPath) : $this->getFallbackImageUrl('flat'),
+                'lifestyle' => $lifestyleMockupPath ? Storage::url($lifestyleMockupPath) : $this->getFallbackImageUrl('lifestyle')
             ];
 
-            Log::info('Generated images successfully', ['images' => $images]);
+            Log::info('Generated all images with consistent design', ['product' => $productName]);
             return $images;
 
         } catch (Exception $e) {
@@ -52,19 +59,19 @@ class ImageGenerationService
         }
     }
 
-    private function generateSingleImage($productName, $genre, $type)
+    private function generateDesignOnly($productName, $genre, $description)
     {
-        $prompts = [
-            'white_background' => "A mystical {$genre} t-shirt design: {$productName}. Beautiful spiritual artwork with rich vibrant colors - deep purples, teals, golds, and mystical blues. Centered composition on pure white background, detailed colorful illustration suitable for t-shirt printing",
-            
-            'black_tshirt' => "A realistic black t-shirt mockup featuring a colorful mystical {$genre} design for {$productName}. The design has vibrant purples, teals, and gold colors that pop against the black fabric. Professional product photography, t-shirt laid flat on white background, design centered on chest area",
-            
-            'lifestyle' => "A real authentic photograph of an everyday person casually wearing a black t-shirt with a colorful mystical design. Shot on iPhone, candid natural moment, real person not a model, genuine smile, natural daylight, outdoor setting like a park or coffee shop patio. Documentary style photography, not posed or staged"
-        ];
+        $prompt = "A mystical mandala artwork on a PURE WHITE (#FFFFFF) background.
+Theme: {$productName} - {$genre} style with celestial symbols, mystical elements.
+Colors: Vibrant purples, teals, golds, blacks, and mystical blues.
 
-        $prompt = $prompts[$type] ?? $prompts['white_background'];
-        
-        Log::info('Generating image', ['type' => $type, 'prompt' => substr($prompt, 0, 100) . '...']);
+CRITICAL REQUIREMENTS:
+- Background MUST be pure white (#FFFFFF), not gray, not cream
+- Design centered with 20% margins on all sides  
+- Compact circular/contained design suitable for chest print area
+- NO text, NO words, NO letters
+- High contrast design that pops against white
+- Print-ready quality illustration";
 
         try {
             $response = Http::withHeaders([
@@ -75,7 +82,7 @@ class ImageGenerationService
                 'prompt' => $prompt,
                 'n' => 1,
                 'size' => '1024x1024',
-                'quality' => 'standard',
+                'quality' => 'hd',
                 'style' => 'vivid'
             ]);
 
@@ -83,97 +90,263 @@ class ImageGenerationService
                 $data = $response->json();
                 $imageUrl = $data['data'][0]['url'];
                 
-                Log::info('DALL-E image generated', ['type' => $type, 'url' => $imageUrl]);
+                // Download and store
+                $imageContent = Http::timeout(60)->get($imageUrl)->body();
+                $filename = \Str::slug($productName) . '_design_' . now()->format('YmdHis') . '.png';
+                $path = 'products/' . $filename;
                 
-                // Store the image
-                $storedUrl = $this->storeImageFromUrl($imageUrl, $productName, $type);
+                Storage::disk('public')->put($path, $imageContent);
                 
-                return $storedUrl ?: $imageUrl;
-            } else {
-                Log::error('DALL-E API failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body()
-                ]);
-                throw new Exception('DALL-E API call failed: ' . $response->body());
+                Log::info('Design generated and stored', ['path' => $path]);
+                return $path;
             }
 
-        } catch (Exception $e) {
-            Log::error('Image generation error', [
-                'type' => $type,
-                'error' => $e->getMessage()
-            ]);
-            return $this->getFallbackImageUrl($type);
-        }
-    }
-
-    private function storeImageFromUrl($imageUrl, $productName, $type)
-    {
-        try {
-            Log::info('Storing image', ['url' => $imageUrl, 'type' => $type]);
-            
-            $imageContent = Http::timeout(60)->get($imageUrl)->body();
-            $filename = $this->generateFilename($productName, $type);
-            $path = 'products/' . $filename;
-            
-            // Store in public disk
-            Storage::disk('public')->put($path, $imageContent);
-            
-            $storedUrl = Storage::url($path);
-            
-            Log::info('Image stored successfully', [
-                'path' => $path,
-                'url' => $storedUrl
-            ]);
-            
-            return $storedUrl;
+            Log::error('DALL-E API failed', ['body' => $response->body()]);
+            return null;
 
         } catch (Exception $e) {
-            Log::error('Image storage failed', [
-                'error' => $e->getMessage(),
-                'url' => $imageUrl
-            ]);
+            Log::error('Design generation error', ['error' => $e->getMessage()]);
             return null;
         }
     }
 
-    private function generateFilename($productName, $type)
+    private function createMockup($designPath, $productName, $mockupType)
     {
-        $slug = \Str::slug($productName);
-        $timestamp = now()->format('YmdHis');
-        return "{$slug}_{$type}_{$timestamp}.png";
+        try {
+            // Get paths
+            $designFullPath = storage_path('app/public/' . $designPath);
+            $templatePath = $this->getMockupTemplate($mockupType);
+
+            if (!file_exists($designFullPath)) {
+                throw new Exception('Design file not found');
+            }
+
+            if (!file_exists($templatePath)) {
+                Log::warning('Mockup template not found, using AI fallback', ['type' => $mockupType]);
+                return $this->generateAIMockup($productName, $mockupType);
+            }
+
+            // Load images using GD
+            $design = $this->loadImage($designFullPath);
+            $template = $this->loadImage($templatePath);
+
+            if (!$design || !$template) {
+                throw new Exception('Could not load images');
+            }
+
+            $templateWidth = imagesx($template);
+            $templateHeight = imagesy($template);
+            $designWidth = imagesx($design);
+            $designHeight = imagesy($design);
+
+            // Remove background from design (detect from corners)
+            $design = $this->removeBackground($design);
+
+            // Calculate placement config
+            $config = $this->getPlacementConfig($mockupType, $templateWidth, $templateHeight);
+
+            // Resize design to fit
+            $newWidth = $config['width'];
+            $newHeight = $config['height'];
+            
+            $resizedDesign = imagecreatetruecolor($newWidth, $newHeight);
+            imagesavealpha($resizedDesign, true);
+            $transparent = imagecolorallocatealpha($resizedDesign, 0, 0, 0, 127);
+            imagefill($resizedDesign, 0, 0, $transparent);
+            
+            imagecopyresampled(
+                $resizedDesign, $design,
+                0, 0, 0, 0,
+                $newWidth, $newHeight,
+                $designWidth, $designHeight
+            );
+
+            // Composite onto template
+            imagecopy($template, $resizedDesign, $config['x'], $config['y'], 0, 0, $newWidth, $newHeight);
+
+            // Save result
+            $filename = \Str::slug($productName) . "_{$mockupType}_" . now()->format('YmdHis') . '.png';
+            $outputPath = storage_path('app/public/products/' . $filename);
+            
+            if (!file_exists(dirname($outputPath))) {
+                mkdir(dirname($outputPath), 0755, true);
+            }
+
+            imagepng($template, $outputPath);
+
+            // Cleanup
+            imagedestroy($design);
+            imagedestroy($template);
+            imagedestroy($resizedDesign);
+
+            return 'products/' . $filename;
+
+        } catch (Exception $e) {
+            Log::error('Mockup creation failed', ['error' => $e->getMessage(), 'type' => $mockupType]);
+            return $this->generateAIMockup($productName, $mockupType);
+        }
+    }
+
+    private function loadImage($path)
+    {
+        $info = getimagesize($path);
+        if (!$info) return null;
+
+        switch ($info[2]) {
+            case IMAGETYPE_PNG:
+                $img = imagecreatefrompng($path);
+                break;
+            case IMAGETYPE_JPEG:
+                $img = imagecreatefromjpeg($path);
+                break;
+            default:
+                return null;
+        }
+
+        if ($img) {
+            imagesavealpha($img, true);
+        }
+        return $img;
+    }
+
+    private function removeBackground($image)
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+
+        // Sample corners to detect background color
+        $corners = [
+            imagecolorsforindex($image, imagecolorat($image, 5, 5)),
+            imagecolorsforindex($image, imagecolorat($image, $width - 5, 5)),
+            imagecolorsforindex($image, imagecolorat($image, 5, $height - 5)),
+            imagecolorsforindex($image, imagecolorat($image, $width - 5, $height - 5))
+        ];
+
+        $bgR = (int)(($corners[0]['red'] + $corners[1]['red'] + $corners[2]['red'] + $corners[3]['red']) / 4);
+        $bgG = (int)(($corners[0]['green'] + $corners[1]['green'] + $corners[2]['green'] + $corners[3]['green']) / 4);
+        $bgB = (int)(($corners[0]['blue'] + $corners[1]['blue'] + $corners[2]['blue'] + $corners[3]['blue']) / 4);
+
+        $tolerance = 30;
+
+        // Create new image with transparency
+        $newImage = imagecreatetruecolor($width, $height);
+        imagesavealpha($newImage, true);
+        $transparent = imagecolorallocatealpha($newImage, 0, 0, 0, 127);
+        imagefill($newImage, 0, 0, $transparent);
+
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width; $x++) {
+                $color = imagecolorsforindex($image, imagecolorat($image, $x, $y));
+                
+                if (abs($color['red'] - $bgR) < $tolerance &&
+                    abs($color['green'] - $bgG) < $tolerance &&
+                    abs($color['blue'] - $bgB) < $tolerance) {
+                    // Make transparent
+                    imagesetpixel($newImage, $x, $y, $transparent);
+                } else {
+                    // Keep original color
+                    $newColor = imagecolorallocatealpha($newImage, $color['red'], $color['green'], $color['blue'], $color['alpha']);
+                    imagesetpixel($newImage, $x, $y, $newColor);
+                }
+            }
+        }
+
+        imagedestroy($image);
+        return $newImage;
+    }
+
+    private function getMockupTemplate($type)
+    {
+        $templates = [
+            'flat' => storage_path('app/mockups/black_tshirt_flat.png'),
+            'lifestyle' => storage_path('app/mockups/lifestyle_blank.png')
+        ];
+        return $templates[$type] ?? $templates['flat'];
+    }
+
+    private function getPlacementConfig($mockupType, $width, $height)
+    {
+        $configs = [
+            'flat' => [
+                'x' => (int)($width * 0.31),
+                'y' => (int)($height * 0.22),
+                'width' => (int)($width * 0.38),
+                'height' => (int)($height * 0.38)
+            ],
+            'lifestyle' => [
+                'x' => (int)($width * 0.35),
+                'y' => (int)($height * 0.28),
+                'width' => (int)($width * 0.30),
+                'height' => (int)($height * 0.30)
+            ]
+        ];
+        return $configs[$mockupType] ?? $configs['flat'];
+    }
+
+    private function generateAIMockup($productName, $mockupType)
+    {
+        // Fallback: generate via AI if template compositing fails
+        $prompts = [
+            'flat' => "Professional product photo of a black t-shirt laid flat on white background with a colorful mystical circular mandala design on chest. Vibrant purples, teals, golds. E-commerce style, centered.",
+            'lifestyle' => "Real candid photo of person wearing black t-shirt with colorful mystical mandala design. Shot on iPhone, natural lighting, cafe setting, genuine smile."
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->openaiApiKey,
+                'Content-Type' => 'application/json',
+            ])->timeout(120)->post($this->baseUrl . '/images/generations', [
+                'model' => 'dall-e-3',
+                'prompt' => $prompts[$mockupType] ?? $prompts['flat'],
+                'n' => 1,
+                'size' => '1024x1024',
+                'quality' => 'standard'
+            ]);
+
+            if ($response->successful()) {
+                $imageUrl = $response->json()['data'][0]['url'];
+                $imageContent = Http::timeout(60)->get($imageUrl)->body();
+                $filename = \Str::slug($productName) . "_{$mockupType}_" . now()->format('YmdHis') . '.png';
+                Storage::disk('public')->put('products/' . $filename, $imageContent);
+                return 'products/' . $filename;
+            }
+        } catch (Exception $e) {
+            Log::error('AI mockup fallback failed', ['error' => $e->getMessage()]);
+        }
+        
+        return null;
     }
 
     public function getFallbackImages()
     {
         return [
-            'white_bg' => 'https://via.placeholder.com/300x300/ffffff/6f42c1?text=Mystic+Design',
-            'black_tshirt' => 'https://via.placeholder.com/300x300/000000/ffffff?text=T-Shirt+Mockup',
-            'lifestyle' => 'https://via.placeholder.com/300x300/6f42c1/ffffff?text=Lifestyle+Photo'
+            'white_bg' => 'https://via.placeholder.com/300x300/ffffff/6f42c1?text=Design',
+            'black_tshirt' => 'https://via.placeholder.com/300x300/000000/ffffff?text=Mockup',
+            'lifestyle' => 'https://via.placeholder.com/300x300/6f42c1/ffffff?text=Lifestyle'
         ];
     }
 
     private function getFallbackImageUrl($type)
     {
         $fallbacks = [
-            'white_background' => 'https://via.placeholder.com/300x300/ffffff/6f42c1?text=Design',
-            'black_tshirt' => 'https://via.placeholder.com/300x300/000000/ffffff?text=Mockup',
+            'flat' => 'https://via.placeholder.com/300x300/000000/ffffff?text=Mockup',
             'lifestyle' => 'https://via.placeholder.com/300x300/6f42c1/ffffff?text=Lifestyle'
         ];
-
-        return $fallbacks[$type] ?? $fallbacks['white_background'];
+        return $fallbacks[$type] ?? $fallbacks['flat'];
     }
 
     public function getEstimatedCost($count)
     {
-        $costPerImage = 0.04; // DALL-E 3 standard quality pricing
-        $imagesPerProduct = 3;
-        $totalImages = $count * $imagesPerProduct;
+        // Only 1 AI-generated image per product (the design)
+        // Mockups are composited from templates
+        $costPerImage = 0.08; // DALL-E 3 HD
+        $totalImages = $count;
         $estimatedCost = $totalImages * $costPerImage;
 
         return [
             'total_images' => $totalImages,
             'estimated_cost_usd' => round($estimatedCost, 2),
-            'cost_per_product' => round($costPerImage * $imagesPerProduct, 2)
+            'cost_per_product' => round($costPerImage, 2)
         ];
     }
 }
