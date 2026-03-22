@@ -22,6 +22,7 @@ Route::middleware(['auth'])->group(function () {
     
     // Products
     Route::get('/products', [ProductsController::class, 'index'])->name('products.index');
+    Route::get('/products/{product}', [ProductsController::class, 'show'])->name('products.show');
     Route::post('/products/generate', [ProductsController::class, 'store'])->name('products.generate');
     Route::post('/products/{product}/status', [ProductsController::class, 'updateStatus'])->name('products.status');
     Route::post('/products/{product}/discontinue', [ProductsController::class, 'discontinue'])->name('products.discontinue');

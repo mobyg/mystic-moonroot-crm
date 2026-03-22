@@ -228,6 +228,21 @@
 .generating {
     animation: pulse 2s infinite;
 }
+
+.product-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.product-link:hover {
+    text-decoration: none;
+    color: inherit;
+}
+
+.product-link:hover .product-name {
+    color: #6f42c1;
+}
 </style>
 @endsection
 

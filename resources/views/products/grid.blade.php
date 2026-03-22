@@ -7,6 +7,9 @@
                     <i class="fas fa-ellipsis-v"></i>
                 </button>
                 <div class="dropdown-menu dropdown-menu-right">
+                    <a class="dropdown-item" href="{{ route('products.show', $product) }}">
+                        <i class="fas fa-eye"></i> View Details
+                    </a>
                     <a class="dropdown-item" href="#" onclick="openStatusModal({{ $product->id }}, '{{ $product->status }}')">
                         <i class="fas fa-edit"></i> Change Status
                     </a>
@@ -26,7 +29,8 @@
             </div>
         </div>
         
-        <div class="product-images">
+        <a href="{{ route('products.show', $product) }}" class="product-link">
+            <div class="product-images">
             @if($product->status === 'In Progress' || str_contains(json_encode($product->images), 'Generating'))
                 <div class="generating-indicator">
                     <i class="fas fa-magic fa-spin"></i>
@@ -63,6 +67,7 @@
         
         <div class="product-name">{{ $product->name }}</div>
         <div class="product-description">{{ Str::limit($product->description, 100) }}</div>
+        </a>
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
             <span class="product-status status-{{ Str::slug($product->status) }}">
