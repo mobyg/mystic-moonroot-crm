@@ -117,12 +117,20 @@ CRITICAL REQUIREMENTS:
             $designFullPath = storage_path('app/public/' . $designPath);
             $templatePath = $this->getMockupTemplate($mockupType);
 
+            Log::info('Creating mockup', [
+                'type' => $mockupType,
+                'design_path' => $designFullPath,
+                'template_path' => $templatePath,
+                'design_exists' => file_exists($designFullPath),
+                'template_exists' => file_exists($templatePath)
+            ]);
+
             if (!file_exists($designFullPath)) {
-                throw new Exception('Design file not found');
+                throw new Exception('Design file not found: ' . $designFullPath);
             }
 
             if (!file_exists($templatePath)) {
-                Log::warning('Mockup template not found, using AI fallback', ['type' => $mockupType]);
+                Log::warning('Mockup template not found, using AI fallback', ['type' => $mockupType, 'path' => $templatePath]);
                 return $this->generateAIMockup($productName, $mockupType);
             }
 
@@ -130,14 +138,22 @@ CRITICAL REQUIREMENTS:
             $design = $this->loadImage($designFullPath);
             $template = $this->loadImage($templatePath);
 
-            if (!$design || !$template) {
-                throw new Exception('Could not load images');
+            if (!$design) {
+                throw new Exception('Could not load design image');
+            }
+            if (!$template) {
+                throw new Exception('Could not load template image');
             }
 
             $templateWidth = imagesx($template);
             $templateHeight = imagesy($template);
             $designWidth = imagesx($design);
             $designHeight = imagesy($design);
+
+            Log::info('Image dimensions', [
+                'template' => "{$templateWidth}x{$templateHeight}",
+                'design' => "{$designWidth}x{$designHeight}"
+            ]);
 
             // Remove background from design (detect from corners)
             $design = $this->removeBackground($design);
@@ -179,10 +195,17 @@ CRITICAL REQUIREMENTS:
             imagedestroy($template);
             imagedestroy($resizedDesign);
 
+            Log::info('Mockup created successfully', ['type' => $mockupType, 'path' => $filename]);
+
             return 'products/' . $filename;
 
         } catch (Exception $e) {
-            Log::error('Mockup creation failed', ['error' => $e->getMessage(), 'type' => $mockupType]);
+            Log::error('Mockup creation failed', [
+                'error' => $e->getMessage(),
+                'type' => $mockupType,
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
             return $this->generateAIMockup($productName, $mockupType);
         }
     }
