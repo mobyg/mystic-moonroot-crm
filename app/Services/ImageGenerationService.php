@@ -269,18 +269,18 @@ CRITICAL REQUIREMENTS:
         // Design sizes adjusted per template
         $configs = [
             'flat' => [
-                // For the realistic black t-shirt template (486x608)
-                'x' => (int)(($width - 220) / 2),  // Centered
-                'y' => (int)($height * 0.25),      // Chest area
+                // For the realistic black t-shirt flat lay (486x608)
+                'x' => (int)(($width - 220) / 2),
+                'y' => (int)($height * 0.25),
                 'width' => 220,
                 'height' => 220
             ],
             'lifestyle' => [
-                // For lifestyle photo template (1024x1024)
-                'x' => (int)(($width - 220) / 2),  // Centered
-                'y' => (int)($height * 0.36),      // Chest area
-                'width' => 220,
-                'height' => 220
+                // For the lifestyle photo template (774x1161)
+                'x' => (int)(($width - 200) / 2),
+                'y' => (int)($height * 0.38),
+                'width' => 200,
+                'height' => 200
             ]
         ];
         return $configs[$mockupType] ?? $configs['flat'];
