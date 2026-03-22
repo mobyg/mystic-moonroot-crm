@@ -55,11 +55,11 @@ class ImageGenerationService
     private function generateSingleImage($productName, $genre, $type)
     {
         $prompts = [
-            'white_background' => "A mystical {$genre} t-shirt design: {$productName}. Beautiful spiritual artwork on pure white background, centered composition, high contrast, vector-style graphic suitable for t-shirt printing",
+            'white_background' => "A mystical {$genre} t-shirt design: {$productName}. Beautiful spiritual artwork with rich vibrant colors - deep purples, teals, golds, and mystical blues. Centered composition on pure white background, detailed colorful illustration suitable for t-shirt printing",
             
-            'black_tshirt' => "A realistic black t-shirt mockup featuring a mystical {$genre} design for {$productName}. Professional product photography, t-shirt laid flat on white background, design centered on chest area",
+            'black_tshirt' => "A realistic black t-shirt mockup featuring a colorful mystical {$genre} design for {$productName}. The design has vibrant purples, teals, and gold colors that pop against the black fabric. Professional product photography, t-shirt laid flat on white background, design centered on chest area",
             
-            'lifestyle' => "A happy person wearing a black t-shirt with mystical {$genre} design. Lifestyle photography, natural lighting, spiritual/bohemian aesthetic, person smiling with positive energy, outdoor nature setting"
+            'lifestyle' => "A real authentic photograph of an everyday person casually wearing a black t-shirt with a colorful mystical design. Shot on iPhone, candid natural moment, real person not a model, genuine smile, natural daylight, outdoor setting like a park or coffee shop patio. Documentary style photography, not posed or staged"
         ];
 
         $prompt = $prompts[$type] ?? $prompts['white_background'];
