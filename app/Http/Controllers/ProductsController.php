@@ -70,11 +70,16 @@ class ProductsController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Product generation failed: ' . $e->getMessage());
+            Log::error('Product generation failed', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
             
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate products. Please try again.'
+                'message' => 'Failed to generate products: ' . $e->getMessage()
             ], 500);
         }
     }
